@@ -436,6 +436,15 @@ body {
   padding: 12px 24px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chat-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .chat-filter-control {

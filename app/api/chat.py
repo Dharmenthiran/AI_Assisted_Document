@@ -45,13 +45,15 @@ async def chat(
     5. Return generated answer and source citations.
     """
     # 1. Validate that documents exist in database
+    active_model = request.model.strip() if request.model and request.model.strip() else generation_service.model
+
     documents = vector_store.list_documents()
     if not documents:
         return ChatResponse(
             question=request.question,
             answer="No documents have been uploaded or indexed yet. Please upload a PDF document first before asking questions.",
             sources=[],
-            model=generation_service.model,
+            model=active_model,
             context_used=False,
             warning="No documents available in vector store.",
         )
@@ -68,7 +70,7 @@ async def chat(
             question=request.question,
             answer="Based on the uploaded documents, I could not find relevant information to answer your question.",
             sources=[],
-            model=generation_service.model,
+            model=active_model,
             context_used=False,
             warning="No chunks matched the search query.",
         )
@@ -79,6 +81,7 @@ async def chat(
             question=request.question,
             context=retrieval_result.context_text,
             citations=retrieval_result.citations,
+            model=active_model,
         )
     except LLMUnavailableError as e:
         logger.error(f"LLM unavailable: {e}")
@@ -112,6 +115,6 @@ async def chat(
         question=request.question,
         answer=answer,
         sources=retrieval_result.citations,
-        model=generation_service.model,
+        model=active_model,
         context_used=True,
     )

@@ -113,12 +113,14 @@ class GenerationService:
         question: str,
         context: str,
         citations: List[SourceCitation],
+        model: Optional[str] = None,
     ) -> str:
         """Query Ollama /api/generate with retrieved context and system prompt."""
+        target_model = model.strip() if model and model.strip() else self.model
         prompt = self._build_prompt(question, context)
 
         payload = {
-            "model": self.model,
+            "model": target_model,
             "system": self.SYSTEM_PROMPT,
             "prompt": prompt,
             "stream": False,
@@ -137,8 +139,8 @@ class GenerationService:
 
                 if response.status_code == 404:
                     raise LLMModelNotFoundError(
-                        f"Model '{self.model}' was not found in Ollama. "
-                        f"Run 'ollama pull {self.model}' in your terminal to install it."
+                        f"Model '{target_model}' was not found in Ollama. "
+                        f"Run 'ollama pull {target_model}' in your terminal to install it."
                     )
                 elif response.status_code != 200:
                     raise LLMError(

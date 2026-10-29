@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const docCountSpan = document.getElementById("doc-count");
   const refreshDocsBtn = document.getElementById("refresh-docs-btn");
   const docFilterSelect = document.getElementById("doc-filter-select");
+  const modelSelect = document.getElementById("model-select");
   const clearChatBtn = document.getElementById("clear-chat-btn");
   const chatMessages = document.getElementById("chat-messages");
   const welcomeCard = document.getElementById("welcome-card");
@@ -23,9 +24,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const systemStatusText = document.getElementById("system-status-text");
   const llmWarningBar = document.getElementById("llm-warning-bar");
   const toastContainer = document.getElementById("toast-container");
+  const specLlm = document.getElementById("spec-llm");
 
   let isGenerating = false;
   let activeDocuments = [];
+  let availableModelsLoaded = false;
 
   // --------------------------------------------------------------------------
   // Utility Functions
@@ -56,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --------------------------------------------------------------------------
-  // System Health Monitoring
+  // System Health & Model Discovery
   // --------------------------------------------------------------------------
 
   async function checkSystemHealth() {
@@ -64,6 +67,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/health");
       const data = await res.json();
       const ollama = data.dependencies?.ollama;
+
+      if (ollama?.available_models && ollama.available_models.length > 0) {
+        updateModelDropdown(ollama.available_models, ollama.configured_model);
+      }
 
       if (data.status === "healthy" && ollama?.online && ollama?.model_present) {
         systemStatusPill.className = "status-pill status-online";
@@ -87,6 +94,39 @@ document.addEventListener("DOMContentLoaded", () => {
       systemStatusPill.className = "status-pill status-offline";
       systemStatusText.textContent = "Backend Unreachable";
     }
+  }
+
+  function updateModelDropdown(models, defaultModel) {
+    if (!modelSelect) return;
+    const currentVal = modelSelect.value;
+    
+    // Check if models actually changed to avoid resetting user selection
+    const existingOptions = Array.from(modelSelect.options).map(o => o.value);
+    const hasChanged = models.length !== existingOptions.length || models.some(m => !existingOptions.includes(m));
+    
+    if (hasChanged || !availableModelsLoaded) {
+      modelSelect.innerHTML = "";
+      models.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m === defaultModel ? `${m} (Default)` : m;
+        if (m === currentVal || (!currentVal && m === defaultModel)) {
+          opt.selected = true;
+        }
+        modelSelect.appendChild(opt);
+      });
+      availableModelsLoaded = true;
+      if (specLlm && modelSelect.value) {
+        specLlm.textContent = modelSelect.value;
+      }
+    }
+  }
+
+  if (modelSelect) {
+    modelSelect.addEventListener("change", () => {
+      if (specLlm) specLlm.textContent = modelSelect.value;
+      showToast(`Active model switched to: ${modelSelect.value}`, "info");
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -305,12 +345,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const selectedDocId = docFilterSelect.value || null;
+      const selectedModel = modelSelect ? modelSelect.value : null;
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: question,
           document_id: selectedDocId,
+          model: selectedModel,
         }),
       });
 
@@ -320,7 +363,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) {
         appendErrorMessage(data.detail || "Failed to generate answer from RAG pipeline.");
       } else {
-        appendAssistantMessage(data.answer, data.sources, data.context_used, data.warning);
+        appendAssistantMessage(data.answer, data.sources, data.context_used, data.warning, data.model);
       }
     } catch (err) {
       typingIndicator.remove();
@@ -362,7 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return row;
   }
 
-  function appendAssistantMessage(answer, sources, contextUsed, warning) {
+  function appendAssistantMessage(answer, sources, contextUsed, warning, modelUsed) {
     const row = document.createElement("div");
     row.className = "message-row assistant-row";
 
@@ -406,8 +449,12 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `<div style="margin-top: 8px; font-size: 0.75rem; color: var(--accent-warning);">ℹ️ ${escapeHtml(warning)}</div>`
       : "";
 
+    const modelBadge = modelUsed
+      ? `<span class="font-mono text-xs" style="color: var(--accent-cyan); margin-left: 6px;">[${escapeHtml(modelUsed)}]</span>`
+      : "";
+
     row.innerHTML = `
-      <span class="message-sender">Assistant</span>
+      <span class="message-sender">Assistant ${modelBadge}</span>
       <div class="bubble assistant-bubble">${escapeHtml(answer)}</div>
       ${warningHtml}
       ${sourcesHtml}

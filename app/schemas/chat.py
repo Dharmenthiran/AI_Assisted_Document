@@ -34,6 +34,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Optional document ID to restrict search to a single document",
     )
+    model: Optional[str] = Field(
+        default=None,
+        description="Optional override to specify which local Ollama model to generate with",
+    )
 
 
 class ChatResponse(BaseModel):

@@ -121,11 +121,20 @@
       <section class="chat-panel">
         <!-- Chat Control Bar -->
         <div class="chat-header-bar">
-          <div class="chat-filter-control">
-            <label for="doc-filter-select" class="text-xs text-muted">Filter Scope:</label>
-            <select id="doc-filter-select" class="select-dropdown">
-              <option value="">All Uploaded Documents</option>
-            </select>
+          <div class="chat-controls-group">
+            <div class="chat-filter-control">
+              <label for="model-select" class="text-xs text-muted">Model:</label>
+              <select id="model-select" class="select-dropdown font-mono" title="Select Ollama Model for generation">
+                <option value="{{ ollama_model }}">{{ ollama_model }} (Default)</option>
+              </select>
+            </div>
+
+            <div class="chat-filter-control">
+              <label for="doc-filter-select" class="text-xs text-muted">Scope:</label>
+              <select id="doc-filter-select" class="select-dropdown">
+                <option value="">All Uploaded Documents</option>
+              </select>
+            </div>
           </div>
 
           <div class="chat-actions">
