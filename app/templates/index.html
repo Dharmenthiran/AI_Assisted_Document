@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ app_name }} — Local Document RAG</title>
+  <meta name="description" content="AI Assistant that answers questions strictly grounded in your uploaded PDF documents using local Retrieval-Augmented Generation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <div class="header-titles">
+          <div class="title-row">
+            <h1>Document AI Assistant</h1>
+            <span class="badge badge-tech">RAG Pipeline</span>
+          </div>
+          <p class="subtitle">Verifiable question answering grounded strictly in uploaded PDF documents</p>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Dependency Status Indicators -->
+        <div id="system-status-pill" class="status-pill status-checking" title="Checking dependency status...">
+          <span class="status-dot"></span>
+          <span id="system-status-text" class="status-text">Checking System...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Grid -->
+    <main class="main-container">
+      <!-- Left Sidebar: Document Management & Ingestion -->
+      <aside class="sidebar-panel">
+        <div class="panel-section">
+          <div class="section-header">
+            <h2>Upload Documents</h2>
+            <span class="text-muted text-xs">PDF up to 15MB</span>
+          </div>
+
+          <!-- Dropzone -->
+          <div id="dropzone" class="upload-dropzone" tabindex="0" role="button" aria-label="Upload PDF Document">
+            <input type="file" id="file-input" accept=".pdf,application/pdf" class="file-input-hidden">
+            <div class="dropzone-content">
+              <div class="dropzone-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <p class="dropzone-primary-text">Drag & drop your PDF here</p>
+              <p class="dropzone-secondary-text">or <span class="browse-link">browse files</span></p>
+            </div>
+          </div>
+
+          <!-- Upload Status Notification Area -->
+          <div id="upload-feedback" class="feedback-box hidden" role="alert"></div>
+        </div>
+
+        <!-- Indexed Documents List Section -->
+        <div class="panel-section documents-section">
+          <div class="section-header">
+            <h2>Indexed Documents (<span id="doc-count">0</span>)</h2>
+            <button id="refresh-docs-btn" class="icon-btn" title="Refresh document list" aria-label="Refresh">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div id="documents-list" class="documents-list">
+            <!-- Empty state -->
+            <div class="empty-docs-state" id="empty-docs-state">
+              <div class="empty-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                  <polyline points="13 2 13 9 20 9"></polyline>
+                </svg>
+              </div>
+              <p>No documents indexed yet.</p>
+              <span>Upload a PDF to start grounded QA.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Technical Model Specs Footer -->
+        <div class="sidebar-footer">
+          <div class="spec-row">
+            <span class="spec-label">LLM:</span>
+            <span id="spec-llm" class="spec-val font-mono">{{ ollama_model }}</span>
+          </div>
+          <div class="spec-row">
+            <span class="spec-label">Embeddings:</span>
+            <span class="spec-val font-mono">{{ embedding_model }}</span>
+          </div>
+          <div class="spec-row">
+            <span class="spec-label">Storage:</span>
+            <span class="spec-val font-mono">ChromaDB (HNSW Cosine)</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right Main Panel: RAG Chat Interface -->
+      <section class="chat-panel">
+        <!-- Chat Control Bar -->
+        <div class="chat-header-bar">
+          <div class="chat-filter-control">
+            <label for="doc-filter-select" class="text-xs text-muted">Filter Scope:</label>
+            <select id="doc-filter-select" class="select-dropdown">
+              <option value="">All Uploaded Documents</option>
+            </select>
+          </div>
+
+          <div class="chat-actions">
+            <button id="clear-chat-btn" class="btn btn-secondary btn-sm" title="Clear local conversation">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              Clear Chat
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable Messages Container -->
+        <div id="chat-messages" class="chat-messages-container" role="log" aria-live="polite">
+          <!-- Welcome Prompt Card -->
+          <div class="welcome-card" id="welcome-card">
+            <div class="welcome-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              How RAG Works
+            </div>
+            <h3>Grounded Document Question Answering</h3>
+            <p>Every answer generated by this assistant is strictly grounded in the content of your indexed PDF documents. When you ask a question:</p>
+            <div class="pipeline-steps">
+              <div class="step-card">
+                <span class="step-num">1</span>
+                <div>
+                  <strong>Dense Retrieval</strong>
+                  <p>Your question is converted into a vector embedding to search the most relevant chunks in ChromaDB.</p>
+                </div>
+              </div>
+              <div class="step-card">
+                <span class="step-num">2</span>
+                <div>
+                  <strong>Context Injection</strong>
+                  <p>The top matching excerpts are extracted alongside strict provenance (filename & page numbers).</p>
+                </div>
+              </div>
+              <div class="step-card">
+                <span class="step-num">3</span>
+                <div>
+                  <strong>Grounded Generation</strong>
+                  <p>The local Ollama LLM formulates a factual answer restricted solely to the retrieved context.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div class="chat-input-wrapper">
+          <div id="llm-warning-bar" class="alert-banner hidden"></div>
+          <form id="chat-form" class="chat-form">
+            <div class="input-container">
+              <textarea
+                id="question-input"
+                class="chat-textarea"
+                rows="1"
+                placeholder="Ask a question about your uploaded documents... (Press Enter to send, Shift+Enter for newline)"
+                required
+              ></textarea>
+              <button type="submit" id="send-btn" class="btn btn-primary send-button" aria-label="Send question">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </div>
+          </form>
+          <div class="input-footer">
+            <span class="text-xs text-muted">Answers cite exact PDF filenames and page numbers. Unverifiable questions are explicitly acknowledged.</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="assertive"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
