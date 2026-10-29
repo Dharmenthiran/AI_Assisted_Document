@@ -48,7 +48,7 @@ class GenerationService:
         self,
         base_url: str = "http://localhost:11434",
         model: str = "llama3.2:3b",
-        timeout: float = 60.0,
+        timeout: float = 300.0,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -127,6 +127,7 @@ class GenerationService:
             "options": {
                 "temperature": 0.1,  # Low temperature for strict factual grounding
                 "top_p": 0.9,
+                "num_predict": 512,  # Bound response length to ensure prompt response times on CPU
             },
         }
 
