@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const llmWarningBar = document.getElementById("llm-warning-bar");
   const toastContainer = document.getElementById("toast-container");
   const specLlm = document.getElementById("spec-llm");
+  const modelSpeedWarning = document.getElementById("model-speed-warning");
 
   let isGenerating = false;
   let activeDocuments = [];
@@ -56,6 +57,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function scrollToBottom() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function checkModelSpeed(modelName) {
+    if (!modelSpeedWarning) return;
+    const m = (modelName || "").toLowerCase();
+    if (m.includes("7b") || m.includes("8b") || m.includes("14b") || m.includes("70b")) {
+      modelSpeedWarning.innerHTML = `⚠️ <strong>7B model on CPU:</strong> May take 3-5+ mins. <button type="button" id="switch-to-fast-btn" style="background:none;border:none;color:#60a5fa;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;">Switch to Fast Model (qwen3:0.6b)</button>`;
+      modelSpeedWarning.classList.remove("hidden");
+      const switchBtn = document.getElementById("switch-to-fast-btn");
+      if (switchBtn) {
+        switchBtn.onclick = (e) => {
+          e.preventDefault();
+          selectFastestModel();
+        };
+      }
+    } else {
+      modelSpeedWarning.classList.add("hidden");
+      modelSpeedWarning.innerHTML = "";
+    }
+  }
+
+  function selectFastestModel() {
+    if (!modelSelect) return;
+    const fastOpt = Array.from(modelSelect.options).find(o => o.value.includes("0.6b") || o.value.includes("tiny") || o.value.includes("3b"));
+    if (fastOpt) {
+      modelSelect.value = fastOpt.value;
+      localStorage.setItem("document_rag_selected_model", fastOpt.value);
+      if (specLlm) specLlm.textContent = fastOpt.value;
+      checkModelSpeed(fastOpt.value);
+      showToast(`Switched to fast CPU model: ${fastOpt.value}`, "success");
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -105,6 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (specLlm) specLlm.textContent = storedModel;
     }
   }
+  checkModelSpeed(modelSelect ? modelSelect.value : "");
 
   function updateModelDropdown(models, defaultModel) {
     if (!modelSelect || !models || models.length === 0) return;
@@ -121,8 +154,11 @@ document.addEventListener("DOMContentLoaded", () => {
         opt.value = m;
         let label = m;
         if (m === defaultModel) label += " (Default)";
-        if (m.includes("0.6b") || m.includes("tiny")) label += " ⚡Fast CPU";
-        if (m.includes("1.5b")) label += " ⚡Reasoning";
+        if (m.includes("0.6b")) label += " ⚡⚡ Fast CPU (~40s)";
+        else if (m.includes("tiny")) label += " ⚡ Fast CPU";
+        else if (m.includes("1.5b")) label += " ⚡ Reasoning (~2m)";
+        else if (m.includes("3b") || m.includes("3.2")) label += " Balanced (~1.8m)";
+        else if (m.includes("7b") || m.includes("8b")) label += " 🐢 Heavy CPU (3-5m)";
         opt.textContent = label;
         if (m === currentVal) {
           opt.selected = true;
@@ -133,6 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (specLlm && modelSelect.value) {
         specLlm.textContent = modelSelect.value;
       }
+      checkModelSpeed(modelSelect.value);
     }
   }
 
@@ -140,6 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modelSelect.addEventListener("change", () => {
       localStorage.setItem("document_rag_selected_model", modelSelect.value);
       if (specLlm) specLlm.textContent = modelSelect.value;
+      checkModelSpeed(modelSelect.value);
       showToast(`Active model switched to: ${modelSelect.value}`, "info");
     });
   }

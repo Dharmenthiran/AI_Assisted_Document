@@ -29,6 +29,24 @@ class LLMModelNotFoundError(LLMError):
     pass
 
 
+def sort_models_by_speed(models: List[str]) -> List[str]:
+    """Sort models so lightweight, fast CPU models appear first."""
+    def _rank(m: str) -> tuple:
+        ml = m.lower()
+        if "0.6b" in ml or "0.5b" in ml:
+            return (0, ml)
+        if "tiny" in ml or "1.5b" in ml or "1b" in ml:
+            return (1, ml)
+        if "3b" in ml or "3.2" in ml or "2b" in ml:
+            return (2, ml)
+        if "7b" in ml or "8b" in ml:
+            return (8, ml)
+        if "14b" in ml or "32b" in ml or "70b" in ml:
+            return (9, ml)
+        return (5, ml)
+    return sorted(models, key=_rank)
+
+
 class GenerationService:
     """Manages prompt construction and interaction with Ollama LLM."""
 
@@ -81,7 +99,8 @@ class GenerationService:
                         "error": f"Ollama HTTP {res.status_code}",
                     }
                 data = res.json()
-                models = [m.get("name", "") for m in data.get("models", [])]
+                raw_models = [m.get("name", "") for m in data.get("models", [])]
+                models = sort_models_by_speed(raw_models)
                 model_present = any(
                     self.model == m or m.startswith(f"{self.model}:") or self.model.startswith(m)
                     for m in models
@@ -139,6 +158,10 @@ class GenerationService:
         self._last_loaded_model = target_model
         prompt = self._build_prompt(question, context)
 
+        # For heavy 7B+ models on CPU, bound output tokens to 180 so they complete without hitting 300s timeout
+        is_heavy_model = any(tag in target_model.lower() for tag in ["7b", "8b", "14b", "32b", "70b"])
+        token_limit = 180 if is_heavy_model else 512
+
         payload = {
             "model": target_model,
             "system": self.SYSTEM_PROMPT,
@@ -148,7 +171,7 @@ class GenerationService:
             "options": {
                 "temperature": 0.1,  # Low temperature for strict factual grounding
                 "top_p": 0.9,
-                "num_predict": 512,  # Bound response length to ensure prompt response times on CPU
+                "num_predict": token_limit,  # Adaptive bound to avoid CPU timeouts
             },
         }
 

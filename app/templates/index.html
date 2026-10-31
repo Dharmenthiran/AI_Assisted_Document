@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=2.2">
+  <link rel="stylesheet" href="/static/css/styles.css?v=2.3">
 </head>
 <body>
   <div class="app-layout">
@@ -128,13 +128,14 @@
                 {% if available_models %}
                   {% for m in available_models %}
                     <option value="{{ m }}" {% if m == ollama_model %}selected{% endif %}>
-                      {{ m }}{% if m == ollama_model %} (Default){% endif %}{% if '0.6b' in m or 'tiny' in m %} ⚡Fast CPU{% endif %}{% if '1.5b' in m %} ⚡Reasoning{% endif %}
+                      {{ m }}{% if m == ollama_model %} (Default){% endif %}{% if '0.6b' in m %} ⚡⚡ Fast CPU (~40s){% elif 'tiny' in m %} ⚡ Fast CPU{% elif '1.5b' in m %} ⚡ Reasoning (~2m){% elif '3b' in m or '3.2' in m %} Balanced (~1.8m){% elif '7b' in m or '8b' in m %} 🐢 Heavy CPU (3-5m){% endif %}
                     </option>
                   {% endfor %}
                 {% else %}
                   <option value="{{ ollama_model }}" selected>{{ ollama_model }} (Default)</option>
                 {% endif %}
               </select>
+              <div id="model-speed-warning" class="hidden text-xs" style="color: #f59e0b; margin-top: 3px; font-weight: 500;"></div>
             </div>
 
             <div class="chat-filter-control">
@@ -227,6 +228,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" aria-live="assertive"></div>
 
-  <script src="/static/js/app.js?v=2.2"></script>
+  <script src="/static/js/app.js?v=2.3"></script>
 </body>
 </html>
