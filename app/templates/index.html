@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="/static/css/styles.css?v=2.2">
 </head>
 <body>
   <div class="app-layout">
@@ -103,7 +103,7 @@
         <!-- Technical Model Specs Footer -->
         <div class="sidebar-footer">
           <div class="spec-row">
-            <span class="spec-label">LLM:</span>
+            <span class="spec-label">Active Model:</span>
             <span id="spec-llm" class="spec-val font-mono">{{ ollama_model }}</span>
           </div>
           <div class="spec-row">
@@ -123,14 +123,22 @@
         <div class="chat-header-bar">
           <div class="chat-controls-group">
             <div class="chat-filter-control">
-              <label for="model-select" class="text-xs text-muted">Model:</label>
+              <label for="model-select" class="text-xs text-muted" style="font-weight: 600;">LLM Model:</label>
               <select id="model-select" class="select-dropdown font-mono" title="Select Ollama Model for generation">
-                <option value="{{ ollama_model }}">{{ ollama_model }} (Default)</option>
+                {% if available_models %}
+                  {% for m in available_models %}
+                    <option value="{{ m }}" {% if m == ollama_model %}selected{% endif %}>
+                      {{ m }}{% if m == ollama_model %} (Default){% endif %}{% if '0.6b' in m or 'tiny' in m %} ⚡Fast CPU{% endif %}{% if '1.5b' in m %} ⚡Reasoning{% endif %}
+                    </option>
+                  {% endfor %}
+                {% else %}
+                  <option value="{{ ollama_model }}" selected>{{ ollama_model }} (Default)</option>
+                {% endif %}
               </select>
             </div>
 
             <div class="chat-filter-control">
-              <label for="doc-filter-select" class="text-xs text-muted">Scope:</label>
+              <label for="doc-filter-select" class="text-xs text-muted" style="font-weight: 600;">Scope:</label>
               <select id="doc-filter-select" class="select-dropdown">
                 <option value="">All Uploaded Documents</option>
               </select>
@@ -219,6 +227,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" aria-live="assertive"></div>
 
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=2.2"></script>
 </body>
 </html>

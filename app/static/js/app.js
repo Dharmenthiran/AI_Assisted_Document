@@ -96,9 +96,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Restore saved model preference from localStorage
+  const storedModel = localStorage.getItem("document_rag_selected_model");
+  if (storedModel && modelSelect) {
+    const hasOpt = Array.from(modelSelect.options).some(o => o.value === storedModel);
+    if (hasOpt) {
+      modelSelect.value = storedModel;
+      if (specLlm) specLlm.textContent = storedModel;
+    }
+  }
+
   function updateModelDropdown(models, defaultModel) {
-    if (!modelSelect) return;
-    const currentVal = modelSelect.value;
+    if (!modelSelect || !models || models.length === 0) return;
+    const currentVal = localStorage.getItem("document_rag_selected_model") || modelSelect.value || defaultModel;
     
     // Check if models actually changed to avoid resetting user selection
     const existingOptions = Array.from(modelSelect.options).map(o => o.value);
@@ -109,8 +119,12 @@ document.addEventListener("DOMContentLoaded", () => {
       models.forEach((m) => {
         const opt = document.createElement("option");
         opt.value = m;
-        opt.textContent = m === defaultModel ? `${m} (Default)` : m;
-        if (m === currentVal || (!currentVal && m === defaultModel)) {
+        let label = m;
+        if (m === defaultModel) label += " (Default)";
+        if (m.includes("0.6b") || m.includes("tiny")) label += " ⚡Fast CPU";
+        if (m.includes("1.5b")) label += " ⚡Reasoning";
+        opt.textContent = label;
+        if (m === currentVal) {
           opt.selected = true;
         }
         modelSelect.appendChild(opt);
@@ -124,6 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (modelSelect) {
     modelSelect.addEventListener("change", () => {
+      localStorage.setItem("document_rag_selected_model", modelSelect.value);
       if (specLlm) specLlm.textContent = modelSelect.value;
       showToast(`Active model switched to: ${modelSelect.value}`, "info");
     });

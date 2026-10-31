@@ -44,6 +44,8 @@ class GenerationService:
         "5. Keep your response direct, factual, and well-structured."
     )
 
+    _last_loaded_model: Optional[str] = None
+
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
@@ -53,6 +55,18 @@ class GenerationService:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
+
+    async def _unload_model(self, model_name: str) -> None:
+        """Immediately unload a model from memory to free system RAM."""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    f"{self.base_url}/api/generate",
+                    json={"model": model_name, "keep_alive": 0},
+                )
+                logger.info(f"Unloaded model '{model_name}' from memory to conserve RAM.")
+        except Exception as e:
+            logger.debug(f"Could not unload model '{model_name}': {e}")
 
     async def check_availability(self) -> Dict[str, Any]:
         """Check if Ollama is running and whether the configured model is present."""
@@ -68,7 +82,6 @@ class GenerationService:
                     }
                 data = res.json()
                 models = [m.get("name", "") for m in data.get("models", [])]
-                # Match exact name or prefix (e.g., 'llama3.2:3b' or 'llama3.2:3b-instruct')
                 model_present = any(
                     self.model == m or m.startswith(f"{self.model}:") or self.model.startswith(m)
                     for m in models
@@ -116,7 +129,14 @@ class GenerationService:
         model: Optional[str] = None,
     ) -> str:
         """Query Ollama /api/generate with retrieved context and system prompt."""
+        import time
         target_model = model.strip() if model and model.strip() else self.model
+
+        # If switching models, unload the previous model to prevent RAM exhaustion and disk thrashing
+        if self._last_loaded_model and self._last_loaded_model != target_model:
+            await self._unload_model(self._last_loaded_model)
+
+        self._last_loaded_model = target_model
         prompt = self._build_prompt(question, context)
 
         payload = {
@@ -124,6 +144,7 @@ class GenerationService:
             "system": self.SYSTEM_PROMPT,
             "prompt": prompt,
             "stream": False,
+            "keep_alive": "5m",  # Keep active model ready
             "options": {
                 "temperature": 0.1,  # Low temperature for strict factual grounding
                 "top_p": 0.9,
@@ -131,12 +152,17 @@ class GenerationService:
             },
         }
 
+        logger.info(f"Dispatching query to Ollama model '{target_model}' (prompt chars: {len(prompt)})...")
+        start_time = time.time()
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     f"{self.base_url}/api/generate",
                     json=payload,
                 )
+
+                elapsed = round(time.time() - start_time, 2)
 
                 if response.status_code == 404:
                     raise LLMModelNotFoundError(
@@ -152,6 +178,8 @@ class GenerationService:
                 answer = result.get("response", "").strip()
                 if not answer:
                     raise LLMError("Ollama returned an empty response.")
+
+                logger.info(f"Ollama generation completed in {elapsed}s for model '{target_model}'.")
                 return answer
 
         except httpx.ConnectError:
@@ -160,7 +188,8 @@ class GenerationService:
                 "Please start Ollama ('ollama serve') and verify your connection."
             )
         except httpx.TimeoutException:
+            elapsed = round(time.time() - start_time, 2)
             raise LLMError(
-                f"Ollama request timed out after {self.timeout} seconds. "
-                "The model might be taking longer than expected to process your request."
+                f"Ollama request timed out after {elapsed} seconds (model: '{target_model}'). "
+                "Recommendation: Switch to a faster model like 'qwen3:0.6b' or 'tinyllama:latest' in the Model dropdown for instant CPU responses."
             )

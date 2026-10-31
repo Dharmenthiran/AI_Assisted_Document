@@ -46,6 +46,9 @@ async def chat(
     """
     # 1. Validate that documents exist in database
     active_model = request.model.strip() if request.model and request.model.strip() else generation_service.model
+    logger.info(
+        f"Processing chat request: question='{request.question}' | requested_model='{request.model}' -> active_model='{active_model}'"
+    )
 
     documents = vector_store.list_documents()
     if not documents:

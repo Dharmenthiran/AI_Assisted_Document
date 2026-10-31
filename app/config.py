@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # (~4 characters per token: 1000 chars ≈ 250 tokens; 150 chars ≈ 37 tokens)
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 150
-    TOP_K: int = 4
+    TOP_K: int = 3
 
     # Upload Constraints
     MAX_UPLOAD_MB: int = 15
